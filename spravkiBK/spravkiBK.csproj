@@ -98,6 +98,9 @@
     <Content Include="123_decoded.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Resource Include="312.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="123.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Resource>

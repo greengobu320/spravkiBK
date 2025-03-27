@@ -31,10 +31,10 @@ namespace spravkiBK
         
         private List<DataSet> DatasetsList = new List<DataSet>();
 
-        private void WorkingFile(String FileName)
+        private void WorkingFile(String xmlContent)
         {
             DatasetsList.Clear();
-            string xmlContent = File.ReadAllText(FileName);
+            //string xmlContent = File.ReadAllText(StringData);
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlContent);
             XmlNodeList spravki = doc.SelectNodes("//Справка");
@@ -99,10 +99,45 @@ namespace spravkiBK
             {
                 string filePath = openFileDialog.FileName;
                 Console.WriteLine("Выбран файл: " + filePath);
-                WorkingFile(filePath);
+                Dictionary <string, string> dict = DecodeXsbFile(filePath);
+                if (dict["result"] == "error")
+                {
+                    MessageBox.Show($"{dict["data"]}", "Ошибка декодирования", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                else {WorkingFile(dict["data"]);}
+                
             }
         }
 
+        private static  Dictionary<string, string> DecodeXsbFile(string inputPath)
+        {
+            Dictionary<string, string> Dict = new Dictionary<string, string>();
+            Dict.Add("result", "error");
+            Dict.Add("data", "");
+
+            try
+            {
+                string encodingName = "utf-32LE";
+                string fileContent;
+                using (StreamReader reader = new StreamReader(inputPath, Encoding.UTF8))
+                {
+                    fileContent = reader.ReadToEnd();
+                }
+                if (fileContent.Length > 6)
+                    fileContent = fileContent.Substring(6);
+                byte[] decodedBytes = Convert.FromBase64String(fileContent);
+                string decodedText = Encoding.GetEncoding(encodingName).GetString(decodedBytes);
+                Dict["data"] = decodedText;
+                Dict["result"] = "success";                
+            }
+            catch (Exception ex)
+            {
+                Dict["data"] = ex.Message + "\n" + ex.StackTrace;
+                Dict["result"] = "error";
+            }
+
+            return Dict;
+        }
         private void DatasetsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
 
@@ -131,7 +166,6 @@ namespace spravkiBK
             }
 
         }
-
         private TreeViewItem GetTreeViewItemFromObject(ItemsControl container, object item)
         {
             if (container == null) return null;
@@ -151,8 +185,6 @@ namespace spravkiBK
             }
             return null;
         }
-
-
         private static DataTable Personal(XmlNode spravka)
         {
             DataTable personal = new DataTable("ЛичныеДанные");

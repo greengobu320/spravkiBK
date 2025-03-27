@@ -63,6 +63,9 @@ namespace spravkiBK
                 //Цифровая валюта
                 ds.Tables.Add(DigitalCurrencies(spravka));
 
+                ds.Tables.Add(Securities(spravka));
+                ds.Tables.Add(GetLiabilities(spravka));
+                ds.Tables.Add(GetGifts(spravka));
 
 
                 // Здесь можно сохранить или обработать DataSet

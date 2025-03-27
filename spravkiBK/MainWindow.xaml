@@ -12,18 +12,18 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <Grid Grid.Row="0">
-            <Button Content="Button" HorizontalAlignment="Left"  VerticalAlignment="Top" Click="Button_Click"/>
+            <Button Content="Открыть файл справку" HorizontalAlignment="Left"  VerticalAlignment="Top" Click="Button_Click"/>
         </Grid>
         <Grid Grid.Row="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="250"/>
-                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="5"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- First TreeView - Datasets -->
-                <GroupBox Grid.Column="0" Header="Datasets" Margin="5">
+                <GroupBox Grid.Column="0" Header="Узлы справки" Margin="5">
                     <TreeView x:Name="DatasetsTreeView" SelectedItemChanged="DatasetsTreeView_SelectedItemChanged">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Tables}">
@@ -32,23 +32,12 @@
                         </TreeView.ItemTemplate>
                     </TreeView>
                 </GroupBox>
-
-                <!-- Second TreeView - Tables -->
-                <GroupBox Grid.Column="1" Header="Tables" Margin="5">
-                    <TreeView x:Name="TablesTreeView" SelectedItemChanged="TablesTreeView_SelectedItemChanged">
-                        <TreeView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding TableName}"/>
-                            </DataTemplate>
-                        </TreeView.ItemTemplate>
-                    </TreeView>
-                </GroupBox>
-
+                <!-- Splitter -->
+                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+              Background="Gray" ShowsPreview="True"/>
                 <!-- DataGrid for table content -->
-                <GroupBox Grid.Column="2" Header="Table Content" Margin="5">
-                    <DataGrid x:Name="DataGridView" AutoGenerateColumns="True" 
-                      CanUserAddRows="False" CanUserDeleteRows="False"
-                      IsReadOnly="True"/>
+                <GroupBox Grid.Column="2" Header="Содержимое узла" Margin="5">
+                    <DataGrid x:Name="DataGridView" AutoGenerateColumns="True"               CanUserAddRows="False" CanUserDeleteRows="False"              IsReadOnly="True"/>
                 </GroupBox>
             </Grid>
         </Grid>

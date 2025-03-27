@@ -30,23 +30,19 @@ namespace spravkiBK
         }
         
         private List<DataSet> DatasetsList = new List<DataSet>();
-        private void Button_Click(object sender, RoutedEventArgs e)
+
+        private void WorkingFile(String FileName)
         {
             DatasetsList.Clear();
-
-            string xmlContent = File.ReadAllText("312.xml");           
+            string xmlContent = File.ReadAllText(FileName);
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlContent);
-
             XmlNodeList spravki = doc.SelectNodes("//Справка");
-
             int index = 1;
-
             foreach (XmlNode spravka in spravki)
             {
-
                 DataSet ds = new DataSet($"Person{index}");
-                ds.DataSetName= $"Person{index}";
+                ds.DataSetName = $"Person{index}";
                 // Личные данные                
                 ds.Tables.Add(Personal(spravka));
                 // Расходы
@@ -55,7 +51,7 @@ namespace spravkiBK
                 ds.Tables.Add(Incomes(spravka));
                 // Счета                
                 ds.Tables.Add(Accounts(spravka));
-                
+
                 //Недвижимое Имущество
                 ds.Tables.Add(RealEstate(spravka));
                 //Недвижимое имущество в собственности
@@ -75,7 +71,7 @@ namespace spravkiBK
                 // Здесь можно сохранить или обработать DataSet
                 Console.WriteLine($"Создан DataSet для Person{index} с {ds.Tables.Count} таблицами.");
                 DatasetsList.Add(ds);
-                
+
                 TreeViewItem personNode = new TreeViewItem();
                 personNode.Header = ds.DataSetName;
 
@@ -85,52 +81,77 @@ namespace spravkiBK
                     TreeViewItem tableNode = new TreeViewItem();
                     tableNode.Header = table.TableName;
                     personNode.Items.Add(tableNode);
-
-                    // Опционально: добавляем столбцы как дочерние узлы таблицы
-                    foreach (DataColumn column in table.Columns)
-                    {
-                        TreeViewItem columnNode = new TreeViewItem();
-                        columnNode.Header = $"{column.ColumnName} ({column.DataType.Name})";
-                        tableNode.Items.Add(columnNode);
-                    }
                 }
-
                 DatasetsTreeView.Items.Add(personNode);
                 index++;
-
             }
+        }
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
 
-            
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "XSB files (*.xsb)|*.xsb|All files (*.*)|*.*",
+                Title = "Выберите XSB файл"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string filePath = openFileDialog.FileName;
+                Console.WriteLine("Выбран файл: " + filePath);
+                WorkingFile(filePath);
+            }
         }
 
         private void DatasetsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-            if (e.NewValue is DataSet selectedDataset)
-            {
-                // Create a list of table info for the second TreeView
-                var tableList = new List<TableInfo>();
-                foreach (DataTable table in selectedDataset.Tables)
-                {
-                    tableList.Add(new TableInfo
-                    {
-                        TableName = table.TableName,
-                        Table = table
-                    });
-                }
 
-                TablesTreeView.ItemsSource = tableList;
-                DataGridView.ItemsSource = null; // Clear current data
+            var treeView = sender as TreeView;
+            if (treeView == null || treeView.SelectedItem == null)
+                return;
+
+            // Получаем TreeViewItem по объекту
+            TreeViewItem selectedTreeViewItem = GetTreeViewItemFromObject(treeView, treeView.SelectedItem);
+
+            if (selectedTreeViewItem == null) return;
+
+            string selectedHeader = selectedTreeViewItem.Header?.ToString() ?? "";
+            string parentHeader = (ItemsControl.ItemsControlFromItemContainer(selectedTreeViewItem) as TreeViewItem)?.Header?.ToString() ?? "";
+
+            if (!string.IsNullOrEmpty(parentHeader))
+            {
+                var table = DatasetsList
+                    .FirstOrDefault(ds => ds.DataSetName == parentHeader)?
+                    .Tables
+                    .Cast<DataTable>()
+                    .FirstOrDefault(t => t.TableName == selectedHeader);
+
+                if (table != null)
+                    DataGridView.ItemsSource = table.DefaultView;
             }
+
         }
-        public class TableInfo
+
+        private TreeViewItem GetTreeViewItemFromObject(ItemsControl container, object item)
         {
-            public string TableName { get; set; }
-            public DataTable Table { get; set; }
+            if (container == null) return null;
+
+            foreach (object i in container.Items)
+            {
+                TreeViewItem treeItem = container.ItemContainerGenerator.ContainerFromItem(i) as TreeViewItem;
+                if (treeItem != null)
+                {
+                    if (i == item)
+                        return treeItem;
+
+                    TreeViewItem child = GetTreeViewItemFromObject(treeItem, item);
+                    if (child != null)
+                        return child;
+                }
+            }
+            return null;
         }
-        private void TablesTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
-        {
-           
-        }
+
 
         private static DataTable Personal(XmlNode spravka)
         {

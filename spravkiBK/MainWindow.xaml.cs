@@ -15,6 +15,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.IO;
 using System.Xml;
+using System.Globalization;
 
 namespace spravkiBK
 {
@@ -27,9 +28,12 @@ namespace spravkiBK
         {
             InitializeComponent();
         }
-
+        
+        private List<DataSet> DatasetsList = new List<DataSet>();
         private void Button_Click(object sender, RoutedEventArgs e)
         {
+            DatasetsList.Clear();
+
             string xmlContent = File.ReadAllText("312.xml");           
             XmlDocument doc = new XmlDocument();
             doc.LoadXml(xmlContent);
@@ -42,16 +46,16 @@ namespace spravkiBK
             {
 
                 DataSet ds = new DataSet($"Person{index}");
-
-
+                ds.DataSetName= $"Person{index}";
                 // Личные данные                
                 ds.Tables.Add(Personal(spravka));
+                // Расходы
+                ds.Tables.Add(Expenses(spravka));
                 // Доходы               
                 ds.Tables.Add(Incomes(spravka));
                 // Счета                
                 ds.Tables.Add(Accounts(spravka));
-                // Расходы
-                ds.Tables.Add(Expenses(spravka));
+                
                 //Недвижимое Имущество
                 ds.Tables.Add(RealEstate(spravka));
                 //Недвижимое имущество в собственности
@@ -62,20 +66,73 @@ namespace spravkiBK
                 ds.Tables.Add(DigitalFinancialAssets(spravka));
                 //Цифровая валюта
                 ds.Tables.Add(DigitalCurrencies(spravka));
-
+                //Ценные Бумаги
                 ds.Tables.Add(Securities(spravka));
+                //Срочные Обязательства
                 ds.Tables.Add(GetLiabilities(spravka));
+                //Подарки
                 ds.Tables.Add(GetGifts(spravka));
-
-
                 // Здесь можно сохранить или обработать DataSet
                 Console.WriteLine($"Создан DataSet для Person{index} с {ds.Tables.Count} таблицами.");
+                DatasetsList.Add(ds);
+                
+                TreeViewItem personNode = new TreeViewItem();
+                personNode.Header = ds.DataSetName;
+
+                // Добавляем таблицы как дочерние узлы
+                foreach (DataTable table in ds.Tables)
+                {
+                    TreeViewItem tableNode = new TreeViewItem();
+                    tableNode.Header = table.TableName;
+                    personNode.Items.Add(tableNode);
+
+                    // Опционально: добавляем столбцы как дочерние узлы таблицы
+                    foreach (DataColumn column in table.Columns)
+                    {
+                        TreeViewItem columnNode = new TreeViewItem();
+                        columnNode.Header = $"{column.ColumnName} ({column.DataType.Name})";
+                        tableNode.Items.Add(columnNode);
+                    }
+                }
+
+                DatasetsTreeView.Items.Add(personNode);
                 index++;
+
             }
-            Console.WriteLine();
+
+            
         }
 
-        private DataTable Personal(XmlNode spravka)
+        private void DatasetsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (e.NewValue is DataSet selectedDataset)
+            {
+                // Create a list of table info for the second TreeView
+                var tableList = new List<TableInfo>();
+                foreach (DataTable table in selectedDataset.Tables)
+                {
+                    tableList.Add(new TableInfo
+                    {
+                        TableName = table.TableName,
+                        Table = table
+                    });
+                }
+
+                TablesTreeView.ItemsSource = tableList;
+                DataGridView.ItemsSource = null; // Clear current data
+            }
+        }
+        public class TableInfo
+        {
+            public string TableName { get; set; }
+            public DataTable Table { get; set; }
+        }
+        private void TablesTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+           
+        }
+
+        private static DataTable Personal(XmlNode spravka)
         {
             DataTable personal = new DataTable("ЛичныеДанные");
             personal.Columns.Add("Тип"); // кто это: Заявитель / Супруг / Ребёнок
@@ -84,6 +141,12 @@ namespace spravkiBK
             personal.Columns.Add("Отчество");
             personal.Columns.Add("ДатаРождения");
             personal.Columns.Add("СНИЛС");
+            personal.Columns.Add("ТипПаспорта");
+            personal.Columns.Add("СерияПаспорта");
+            personal.Columns.Add("НомерПаспорта");
+            personal.Columns.Add("ДатаВыдачиПаспорта");
+            personal.Columns.Add("ОрганВыдачиПаспорта");
+            personal.Columns.Add("Пол");
             personal.Columns.Add("Регистрация");
             personal.Columns.Add("Должность");
             personal.Columns.Add("Организация");
@@ -117,29 +180,143 @@ namespace spravkiBK
                 row["Имя"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Имя']")?.InnerText;
                 row["Отчество"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Отчество']")?.InnerText;
                 row["ДатаРождения"] = docNode?.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
-
-                // СНИЛС (если есть)
                 row["СНИЛС"] = node.SelectSingleNode("./Атрибут[@Имя='СНИЛС']")?.InnerText;
-
-                // Адрес
                 var адрес = node.SelectSingleNode("./Атрибут[@Имя='Регистрация']/Адрес/Атрибут[@Имя='ДляПечати']");
                 row["Регистрация"] = адрес?.InnerText;
-
-                // Место работы (если есть)
                 var местоРаботы = node.SelectSingleNode("./Атрибут[@Имя='МестоРаботы']/МестоРаботы");
                 row["Должность"] = местоРаботы?.SelectSingleNode("./Атрибут[@Имя='Должность']")?.InnerText;
                 row["Организация"] = местоРаботы?.SelectSingleNode("./Атрибут[@Имя='НазваниеОрганизации']")?.InnerText;
-
+                row["ТипПаспорта"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Тип']")?.InnerText;
+                row["СерияПаспорта"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Серия']")?.InnerText;
+                row["НомерПаспорта"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Номер']")?.InnerText;
+                row["ДатаВыдачиПаспорта"] = docNode?.SelectSingleNode("./Атрибут[@Имя='ДатаВыдачи']")?.InnerText;
+                row["ОрганВыдачиПаспорта"] = docNode?.SelectSingleNode("./Атрибут[@Имя='ОрганВыдавшийДокумент']")?.InnerText;
+                row["Пол"] = docNode?.SelectSingleNode("./Атрибут[@Имя='Пол']")?.InnerText;
                 personal.Rows.Add(row);
             }
             return personal;
 
         }
-        private DataTable Incomes(XmlNode spravka)
+        private static DataTable Expenses(XmlNode spravka)
+        {
+            DataTable expenses = new DataTable("Расходы");
+
+            // Основные колонки
+            expenses.Columns.Add("ОснованиеПриобретения");
+            expenses.Columns.Add("Наименование");
+            expenses.Columns.Add("СуммаСделки");
+            expenses.Columns.Add("СуммаСделкиДляПечати");
+            expenses.Columns.Add("ИсточникСредств");
+            expenses.Columns.Add("ВидНедвижимогоИмущества");
+            expenses.Columns.Add("Площадь");
+            expenses.Columns.Add("ПлощадьДляПечати");
+            expenses.Columns.Add("ВидАктива");
+
+            // Адресные колонки
+            expenses.Columns.Add("АдресДляПечати");
+            expenses.Columns.Add("Страна");
+            expenses.Columns.Add("Индекс");
+            expenses.Columns.Add("Регион");
+            expenses.Columns.Add("Город");
+            expenses.Columns.Add("Улица");
+            expenses.Columns.Add("Дом");
+            expenses.Columns.Add("Корпус");
+            expenses.Columns.Add("Квартира");
+            expenses.Columns.Add("ДополнительнаяИнформация");
+
+            // Колонки для источников средств
+            expenses.Columns.Add("Источник1");
+            expenses.Columns.Add("Сумма1");
+            expenses.Columns.Add("Источник2");
+            expenses.Columns.Add("Сумма2");
+            expenses.Columns.Add("Кредитор");
+            expenses.Columns.Add("ИННКредитора");
+            expenses.Columns.Add("ОГРНКредитора");
+            expenses.Columns.Add("АдресКредитора");
+            expenses.Columns.Add("КредитныйДоговор");
+            expenses.Columns.Add("СуммаКредита");
+            expenses.Columns.Add("ОстатокКредита");
+            expenses.Columns.Add("УсловияКредита");
+
+            XmlNodeList расходы = spravka.SelectNodes(".//Расход");
+            foreach (XmlNode расход in расходы)
+            {
+                var row = expenses.NewRow();
+
+                // Основные данные
+                row["ОснованиеПриобретения"] = расход.SelectSingleNode("./Атрибут[@Имя='ОснованиеПриобретения']")?.InnerText;
+                row["Наименование"] = расход.SelectSingleNode("./Атрибут[@Имя='Наименование']")?.InnerText;
+                row["СуммаСделки"] = расход.SelectSingleNode("./Атрибут[@Имя='СуммаСделки']")?.InnerText;
+                row["СуммаСделкиДляПечати"] = расход.SelectSingleNode("./Атрибут[@Имя='СуммаСделкиДляПечати']")?.InnerText;
+                row["ИсточникСредств"] = расход.SelectSingleNode("./Атрибут[@Имя='ИсточникСредств']")?.InnerText;
+                row["ВидНедвижимогоИмущества"] = расход.SelectSingleNode("./Атрибут[@Имя='ВидНедвижимогоИмущества']")?.InnerText;
+                row["Площадь"] = расход.SelectSingleNode("./Атрибут[@Имя='Площадь']")?.InnerText;
+                row["ПлощадьДляПечати"] = расход.SelectSingleNode("./Атрибут[@Имя='ПлощадьДляПечати']")?.InnerText;
+                row["ВидАктива"] = расход.SelectSingleNode("./Атрибут[@Имя='ВидАктива']")?.InnerText;
+
+                // Адресные данные
+                var адрес = расход.SelectSingleNode("./Атрибут[@Имя='МестонахождениеИмущества']/Адрес");
+                if (адрес != null)
+                {
+                    row["АдресДляПечати"] = адрес.SelectSingleNode("./Атрибут[@Имя='ДляПечати']")?.InnerText;
+                    row["Страна"] = адрес.SelectSingleNode("./Атрибут[@Имя='Страна']")?.InnerText;
+                    row["Индекс"] = адрес.SelectSingleNode("./Атрибут[@Имя='Индекс']")?.InnerText;
+                    row["Регион"] = адрес.SelectSingleNode("./Атрибут[@Имя='Регион']")?.InnerText;
+                    row["Город"] = адрес.SelectSingleNode("./Атрибут[@Имя='Город']")?.InnerText;
+                    row["Улица"] = адрес.SelectSingleNode("./Атрибут[@Имя='Улица']")?.InnerText;
+                    row["Дом"] = адрес.SelectSingleNode("./Атрибут[@Имя='Дом']")?.InnerText;
+                    row["Корпус"] = адрес.SelectSingleNode("./Атрибут[@Имя='Корпус']")?.InnerText;
+                    row["Квартира"] = адрес.SelectSingleNode("./Атрибут[@Имя='Квартира']")?.InnerText;
+                    row["ДополнительнаяИнформация"] = адрес.SelectSingleNode("./Атрибут[@Имя='ДополнительнаяИнформация']")?.InnerText;
+                }
+
+                // Источники средств
+                var источники = расход.SelectNodes("./Атрибут[@Имя='ИсточникиСредств']/ИсточникСредств");
+                if (источники != null && источники.Count > 0)
+                {
+                    // Первый источник
+                    var источник1 = источники[0];
+                    row["Источник1"] = источник1.SelectSingleNode("./Атрибут[@Имя='Источник']")?.InnerText;
+                    row["Сумма1"] = источник1.SelectSingleNode("./Атрибут[@Имя='СуммаСредств']")?.InnerText;
+
+                    // Второй источник (если есть)
+                    if (источники.Count > 1)
+                    {
+                        var источник2 = источники[1];
+                        row["Источник2"] = источник2.SelectSingleNode("./Атрибут[@Имя='Источник']/СрочноеОбязательство/Атрибут[@Имя='СодержаниеОбязательства']")?.InnerText;
+                        row["Сумма2"] = источник2.SelectSingleNode("./Атрибут[@Имя='СуммаСредств']")?.InnerText;
+
+                        var кредит = источник2.SelectSingleNode("./Атрибут[@Имя='Источник']/СрочноеОбязательство");
+                        if (кредит != null)
+                        {
+                            row["Кредитор"] = кредит.SelectSingleNode("./Атрибут[@Имя='ВтораяСторонаОбязательстваДляПечати']")?.InnerText;
+                            row["ИННКредитора"] = кредит.SelectSingleNode("./Атрибут[@Имя='ИНН']")?.InnerText;
+                            row["ОГРНКредитора"] = кредит.SelectSingleNode("./Атрибут[@Имя='ОГРН']")?.InnerText;
+                            row["АдресКредитора"] = кредит.SelectSingleNode("./Атрибут[@Имя='Адрес']/Адрес/Атрибут[@Имя='ДляПечати']")?.InnerText;
+                            row["КредитныйДоговор"] = кредит.SelectSingleNode("./Атрибут[@Имя='ОснованиеВозникновения']")?.InnerText;
+                            row["СуммаКредита"] = кредит.SelectSingleNode("./Атрибут[@Имя='СуммаОбязательства']")?.InnerText;
+                            row["ОстатокКредита"] = кредит.SelectSingleNode("./Атрибут[@Имя='РазмерОбязательства']")?.InnerText;        
+                            row["УсловияКредита"] = кредит.SelectSingleNode("./Атрибут[@Имя='УсловиеОбязательства']")?.InnerText;
+                        }
+                    }
+                }
+
+                expenses.Rows.Add(row);
+            }
+
+            return expenses;
+        }
+        private static DataTable Incomes(XmlNode spravka)
         {
             DataTable incomes = new DataTable("Доходы");
             incomes.Columns.Add("ВидДохода");
             incomes.Columns.Add("ВеличинаДохода");
+            incomes.Columns.Add("СведениеОДоходе");
+            incomes.Columns.Add("КатегорияДохода");
+            incomes.Columns.Add("ВидИногоДохода");
+            incomes.Columns.Add("ИмяДарителя");
+            incomes.Columns.Add("ДатаРожденияДарителя");
+            incomes.Columns.Add("Пояснения");
 
             XmlNodeList доходы = spravka.SelectNodes(".//Доход");
             foreach (XmlNode доход in доходы)
@@ -147,120 +324,175 @@ namespace spravkiBK
                 var row = incomes.NewRow();
                 row["ВидДохода"] = доход.SelectSingleNode("./Атрибут[@Имя='ВидДохода']")?.InnerText;
                 row["ВеличинаДохода"] = доход.SelectSingleNode("./Атрибут[@Имя='ВеличинаДохода']")?.InnerText;
+                row["СведениеОДоходе"] = доход.SelectSingleNode("./Атрибут[@Имя='СведениеОДоходе']")?.InnerText;
+                row["КатегорияДохода"] = доход.SelectSingleNode("./Атрибут[@Имя='КатегорияДохода']")?.InnerText;
+                row["ВидИногоДохода"] = доход.SelectSingleNode("./Атрибут[@Имя='ВидИногоДохода']")?.InnerText;
+
+                // Особые поля для доходов от дарения
+                row["ИмяДарителя"] = доход.SelectSingleNode("./Атрибут[@Имя='Имя']")?.InnerText;
+                row["ДатаРожденияДарителя"] = доход.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
+                row["Пояснения"] = доход.SelectSingleNode("./Атрибут[@Имя='Пояснения']")?.InnerText;
+
                 incomes.Rows.Add(row);
             }
-            return incomes;
+            return incomes;        
         }
-        private DataTable Accounts(XmlNode spravka)
+        private static DataTable Accounts(XmlNode spravka)
         {
             DataTable accounts = new DataTable("Счета");
+
+            // Основные колонки
             accounts.Columns.Add("ВидСчета");
             accounts.Columns.Add("ВалютаСчета");
-            accounts.Columns.Add("ДатаОткрытия");
+            accounts.Columns.Add("ДатаОткрытия", typeof(DateTime));
+            accounts.Columns.Add("ДатаОткрытияДляПечати");
             accounts.Columns.Add("КредитнаяОрганизация");
-            accounts.Columns.Add("ОстатокНаСчете");
+            accounts.Columns.Add("КредитнаяОрганизацияДляПечати");
+            accounts.Columns.Add("ОстатокНаСчете", typeof(decimal));
+            accounts.Columns.Add("ОстатокНаСчетеДляПечати");
+            accounts.Columns.Add("СуммаПоступившихСредств", typeof(decimal));
+            accounts.Columns.Add("СуммаПоступившихСредствДляПечати");
             accounts.Columns.Add("СуммаНеПревышаетОбщийДоход");
-            accounts.Columns.Add("ДатаВыписки");
+            accounts.Columns.Add("ДатаВыписки", typeof(DateTime));
             accounts.Columns.Add("Идентификатор");
+            accounts.Columns.Add("Пояснения");
+            accounts.Columns.Add("ВидСчетаИВалютаДляПечати");
 
-            var счета = spravka.SelectNodes(".//Атрибут[@Имя='Счета']/Счет");
+            XmlNodeList счета = spravka.SelectNodes(".//Счет");
             foreach (XmlNode счет in счета)
             {
                 var row = accounts.NewRow();
+
+                // Основные данные
                 row["ВидСчета"] = счет.SelectSingleNode("./Атрибут[@Имя='ВидСчета']")?.InnerText;
                 row["ВалютаСчета"] = счет.SelectSingleNode("./Атрибут[@Имя='ВалютаСчета']")?.InnerText;
-                row["ДатаОткрытия"] = счет.SelectSingleNode("./Атрибут[@Имя='ДатаОткрытияСчета']")?.InnerText;
+
+                DateTime date;
+                if (DateTime.TryParse(счет.SelectSingleNode("./Атрибут[@Имя='ДатаОткрытияСчета']")?.InnerText, out date))
+                    row["ДатаОткрытия"] = date;
+                row["ДатаОткрытияДляПечати"] = счет.SelectSingleNode("./Атрибут[@Имя='ДатаОткрытияСчетаДляПечати']")?.InnerText;
+
                 row["КредитнаяОрганизация"] = счет.SelectSingleNode("./Атрибут[@Имя='КредитнаяОрганизация']")?.InnerText;
-                row["ОстатокНаСчете"] = счет.SelectSingleNode("./Атрибут[@Имя='ОстатокНаСчете']")?.InnerText;
+                row["КредитнаяОрганизацияДляПечати"] = счет.SelectSingleNode("./Атрибут[@Имя='КредитнаяОрганизацияДляПечати']")?.InnerText;
+
+                decimal balance;
+                if (decimal.TryParse(счет.SelectSingleNode("./Атрибут[@Имя='ОстатокНаСчете']")?.InnerText,
+                                   NumberStyles.Any, CultureInfo.InvariantCulture, out balance))
+                    row["ОстатокНаСчете"] = balance;
+                row["ОстатокНаСчетеДляПечати"] = счет.SelectSingleNode("./Атрибут[@Имя='ОстатокНаСчетеДляПечати']")?.InnerText;
+
+                decimal income;
+                if (decimal.TryParse(счет.SelectSingleNode("./Атрибут[@Имя='СуммаПоступившихСредств']")?.InnerText,
+                                   NumberStyles.Any, CultureInfo.InvariantCulture, out income))
+                    row["СуммаПоступившихСредств"] = income;
+                row["СуммаПоступившихСредствДляПечати"] = счет.SelectSingleNode("./Атрибут[@Имя='СуммаПоступившихСредствДляПечати']")?.InnerText;
+
                 row["СуммаНеПревышаетОбщийДоход"] = счет.SelectSingleNode("./Атрибут[@Имя='СуммаНеПревышаетОбщийДоход']")?.InnerText;
-                row["ДатаВыписки"] = счет.SelectSingleNode("./Атрибут[@Имя='ДатаВыписки']")?.InnerText;
+
+                if (DateTime.TryParse(счет.SelectSingleNode("./Атрибут[@Имя='ДатаВыписки']")?.InnerText, out date))
+                    row["ДатаВыписки"] = date;
+
                 row["Идентификатор"] = счет.SelectSingleNode("./Атрибут[@Имя='Идентификатор']")?.InnerText;
+                row["Пояснения"] = счет.SelectSingleNode("./Атрибут[@Имя='Пояснения']")?.InnerText;
+                row["ВидСчетаИВалютаДляПечати"] = счет.SelectSingleNode("./Атрибут[@Имя='ВидСчетаИВалютаДляПечати']")?.InnerText;
 
                 accounts.Rows.Add(row);
             }
+
             return accounts;
         }
-        private DataTable Expenses(XmlNode spravka)
+        private static DataTable RealEstate(XmlNode spravka)
         {
-            DataTable expenses = new DataTable("Расходы");
-            expenses.Columns.Add("Наименование");
-            expenses.Columns.Add("СуммаСделки");
-            expenses.Columns.Add("Основание");
-            expenses.Columns.Add("ИсточникСредств");
-            expenses.Columns.Add("Площадь");
-            expenses.Columns.Add("Адрес");
-            expenses.Columns.Add("ТипИмущества");
+            DataTable realEstate = new DataTable("НедвижимоеИмущество");
 
-            // Получаем список расходов
-            var расходы = spravka.SelectNodes(".//Атрибут[@Имя='Расходы']/Расход");
+            // Основные колонки
+            realEstate.Columns.Add("ВидИмущества");
+            realEstate.Columns.Add("ТипАктива");
+            realEstate.Columns.Add("Наименование");
+            realEstate.Columns.Add("Площадь", typeof(double));
+            realEstate.Columns.Add("ПлощадьДляПечати");
+            realEstate.Columns.Add("ВидСобственности");
+            realEstate.Columns.Add("ВидСобственностиДляПечати");
+            realEstate.Columns.Add("ОснованиеПриобретения");
+            realEstate.Columns.Add("ПолноеОписание");
 
-            foreach (XmlNode расход in расходы)
-            {
-                var row = expenses.NewRow();
+            // Адресные колонки
+            realEstate.Columns.Add("АдресДляПечати");
+            realEstate.Columns.Add("Страна");
+            realEstate.Columns.Add("Индекс");
+            realEstate.Columns.Add("Регион");
+            realEstate.Columns.Add("Город");
+            realEstate.Columns.Add("Улица");
+            realEstate.Columns.Add("Дом");
+            realEstate.Columns.Add("Корпус");
+            realEstate.Columns.Add("Квартира");
+            realEstate.Columns.Add("ДополнительнаяИнформация");
 
-                row["Наименование"] = расход.SelectSingleNode("./Атрибут[@Имя='Наименование']")?.InnerText;
-                row["СуммаСделки"] = расход.SelectSingleNode("./Атрибут[@Имя='СуммаСделки']")?.InnerText;
-                row["Основание"] = расход.SelectSingleNode("./Атрибут[@Имя='ОснованиеПриобретения']")?.InnerText;
-                row["ИсточникСредств"] = расход.SelectSingleNode("./Атрибут[@Имя='ИсточникСредств']")?.InnerText;
-                row["Площадь"] = расход.SelectSingleNode("./Атрибут[@Имя='Площадь']")?.InnerText;
-                row["ТипИмущества"] = расход.SelectSingleNode("./Атрибут[@Имя='ВидНедвижимогоИмущества']")?.InnerText;
+            // Колонки для совладельцев
+            realEstate.Columns.Add("Совладельцы");
+            realEstate.Columns.Add("ДатыРожденияСовладельцев");
+            realEstate.Columns.Add("КоличествоСовладельцев", typeof(int));
 
-                var адрес = расход.SelectSingleNode("./Атрибут[@Имя='МестонахождениеИмущества']/Адрес/Атрибут[@Имя='ДляПечати']");
-                row["Адрес"] = адрес?.InnerText;
-
-                expenses.Rows.Add(row);
-            }
-            return expenses;
-        }
-        private DataTable RealEstate(XmlNode spravka)
-        {
-            DataTable realEstate = new DataTable("Недвижимое Имущество");
-
-            realEstate.Columns.Add("PropertyType");             // ВидНедвижимогоИмущества
-            realEstate.Columns.Add("PropertyName");             // НаименованиеНедвижимогоИмущества
-            realEstate.Columns.Add("FullDescription");          // НаименованиеИмущества
-            realEstate.Columns.Add("Area");                     // Площадь
-            realEstate.Columns.Add("OwnershipType");            // ВидСобственности
-            realEstate.Columns.Add("AcquisitionBasis");         // ОснованиеПриобретенияИИсточникСредств
-            realEstate.Columns.Add("Address");                  // Адрес для печати
-            realEstate.Columns.Add("CoOwners");                 // ИныеЛица (имена)
-            realEstate.Columns.Add("CoOwnersBirthDates");       // ИныеЛица (дата рождения)
-
-            var properties = spravka.SelectNodes(".//Атрибут[@Имя='НедвижимоеИмущество']/Собственность");
-
-            foreach (XmlNode prop in properties)
+            XmlNodeList собственности = spravka.SelectNodes(".//Собственность");
+            foreach (XmlNode собственность in собственности)
             {
                 var row = realEstate.NewRow();
 
-                // Тип и наименование
-                row["PropertyType"] = prop.SelectSingleNode(".//Атрибут[@Имя='ВидНедвижимогоИмущества']")?.InnerText;
-                row["PropertyName"] = prop.SelectSingleNode(".//Атрибут[@Имя='НаименованиеНедвижимогоИмущества']")?.InnerText;
-                row["FullDescription"] = prop.SelectSingleNode(".//Атрибут[@Имя='НаименованиеИмущества']")?.InnerText;
-                row["Area"] = prop.SelectSingleNode(".//Атрибут[@Имя='Площадь']")?.InnerText;
-                row["OwnershipType"] = prop.SelectSingleNode(".//Атрибут[@Имя='ВидСобственности']")?.InnerText;
-                row["AcquisitionBasis"] = prop.SelectSingleNode(".//Атрибут[@Имя='ОснованиеПриобретенияИИсточникСредств']")?.InnerText;
+                // Основные данные
+                row["ВидИмущества"] = собственность.SelectSingleNode(".//Атрибут[@Имя='ВидНедвижимогоИмущества']")?.InnerText;
+                row["ТипАктива"] = собственность.SelectSingleNode(".//Атрибут[@Имя='ВидАктива']")?.InnerText;
+                row["Наименование"] = собственность.SelectSingleNode(".//Атрибут[@Имя='НаименованиеНедвижимогоИмущества']")?.InnerText;
 
-                // Адрес
-                row["Address"] = prop.SelectSingleNode(".//Атрибут[@Имя='МестонахождениеИмущества']/Адрес/Атрибут[@Имя='ДляПечати']")?.InnerText;
+                double площадь;
+                if (double.TryParse(собственность.SelectSingleNode(".//Атрибут[@Имя='Площадь']")?.InnerText,
+                                  NumberStyles.Any, CultureInfo.InvariantCulture, out площадь))
+                    row["Площадь"] = площадь;
+                row["ПлощадьДляПечати"] = собственность.SelectSingleNode(".//Атрибут[@Имя='ПлощадьДляПечати']")?.InnerText;
 
-                // Совладельцы
-                var coOwners = prop.SelectNodes(".//Атрибут[@Имя='ИныеЛица']/ФизическоеЛицо");
-                if (coOwners != null && coOwners.Count > 0)
+                row["ВидСобственности"] = собственность.SelectSingleNode("./Атрибут[@Имя='ВидСобственности']")?.InnerText;
+                row["ВидСобственностиДляПечати"] = собственность.SelectSingleNode("./Атрибут[@Имя='ВидСобственностиДляПечати']")?.InnerText;
+                row["ОснованиеПриобретения"] = собственность.SelectSingleNode("./Атрибут[@Имя='ОснованиеПриобретенияИИсточникСредств']")?.InnerText;
+                row["ПолноеОписание"] = собственность.SelectSingleNode(".//Атрибут[@Имя='НаименованиеИмущества']")?.InnerText;
+
+                // Адресные данные
+                var адрес = собственность.SelectSingleNode(".//Адрес");
+                if (адрес != null)
                 {
-                    var names = new List<string>();
-                    var birthDates = new List<string>();
+                    row["АдресДляПечати"] = адрес.SelectSingleNode("./Атрибут[@Имя='ДляПечати']")?.InnerText;
+                    row["Страна"] = адрес.SelectSingleNode("./Атрибут[@Имя='Страна']")?.InnerText;
+                    row["Индекс"] = адрес.SelectSingleNode("./Атрибут[@Имя='Индекс']")?.InnerText;
+                    row["Регион"] = адрес.SelectSingleNode("./Атрибут[@Имя='Регион']")?.InnerText;
+                    row["Город"] = адрес.SelectSingleNode("./Атрибут[@Имя='Город']")?.InnerText;
+                    row["Улица"] = адрес.SelectSingleNode("./Атрибут[@Имя='Улица']")?.InnerText;
+                    row["Дом"] = адрес.SelectSingleNode("./Атрибут[@Имя='Дом']")?.InnerText;
+                    row["Корпус"] = адрес.SelectSingleNode("./Атрибут[@Имя='Корпус']")?.InnerText;
+                    row["Квартира"] = адрес.SelectSingleNode("./Атрибут[@Имя='Квартира']")?.InnerText;
+                    row["ДополнительнаяИнформация"] = адрес.SelectSingleNode("./Атрибут[@Имя='ДополнительнаяИнформация']")?.InnerText;
+                }
 
-                    foreach (XmlNode person in coOwners)
+                // Данные о совладельцах
+                var совладельцы = собственность.SelectNodes("./Атрибут[@Имя='ИныеЛицы']/ФизическоеЛицо");
+                if (совладельцы != null && совладельцы.Count > 0)
+                {
+                    var имена = new List<string>();
+                    var датыРождения = new List<string>();
+
+                    foreach (XmlNode совладелец in совладельцы)
                     {
-                        var name = person.SelectSingleNode("./Атрибут[@Имя='Имя']")?.InnerText;
-                        var birth = person.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
+                        var имя = совладелец.SelectSingleNode("./Атрибут[@Имя='Имя']")?.InnerText;
+                        var дата = совладелец.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
 
-                        if (!string.IsNullOrEmpty(name)) names.Add(name);
-                        if (!string.IsNullOrEmpty(birth)) birthDates.Add(birth);
+                        if (!string.IsNullOrEmpty(имя)) имена.Add(имя);
+                        if (!string.IsNullOrEmpty(дата)) датыРождения.Add(дата);
                     }
 
-                    row["CoOwners"] = string.Join("; ", names);
-                    row["CoOwnersBirthDates"] = string.Join("; ", birthDates);
+                    row["Совладельцы"] = string.Join("; ", имена);
+                    row["ДатыРожденияСовладельцев"] = string.Join("; ", датыРождения);
+                    row["КоличествоСовладельцев"] = совладельцы.Count;
+                }
+                else
+                {
+                    row["КоличествоСовладельцев"] = 0;
                 }
 
                 realEstate.Rows.Add(row);
@@ -268,214 +500,292 @@ namespace spravkiBK
 
             return realEstate;
         }
-        private DataTable UsageRealEstate(XmlNode spravka)
-        {
-            DataTable usage = new DataTable("Недвижимое имущество в собственности");
 
-            usage.Columns.Add("UsageType");         // ВидПользования (например, Аренда)
-            usage.Columns.Add("StartYear");         // Начало
-            usage.Columns.Add("EndYear");           // Конец
-            usage.Columns.Add("FullUsageText");     // ВидИСрокиПользованияДляПечати
-            usage.Columns.Add("Basis");             // ОснованиеПользования
-            usage.Columns.Add("PropertyType");      // ВидНедвижимогоИмущества
-            usage.Columns.Add("PropertyName");      // НаименованиеИмущества
-            usage.Columns.Add("Area");              // Площадь
-            usage.Columns.Add("Address");           // Адрес (ДляПечати)
-            usage.Columns.Add("OwnerFullName");     // ФИО предоставившего
-            usage.Columns.Add("OwnerBirthDate");    // ДатаРождения
+        private static DataTable UsageRealEstate(XmlNode spravka)
+        {
+            DataTable usage = new DataTable("Недвижимое имущество в пользовании");
+
+            usage.Columns.Add("Вид пользования", typeof(string));
+            usage.Columns.Add("Период (начало)", typeof(string));
+            usage.Columns.Add("Период (конец)", typeof(string));
+            usage.Columns.Add("Сроки пользования", typeof(string));
+            usage.Columns.Add("Основание", typeof(string));
+            usage.Columns.Add("Тип имущества", typeof(string));
+            usage.Columns.Add("Наименование", typeof(string));
+            usage.Columns.Add("Площадь (кв.м)", typeof(string));
+            usage.Columns.Add("Адрес", typeof(string));
+            usage.Columns.Add("Предоставившее лицо", typeof(string));
+            usage.Columns.Add("Дата рождения предоставившего", typeof(string));
 
             var nodes = spravka.SelectNodes(".//Атрибут[@Имя='НедвижимоеИмуществоВПользовании']/Пользование");
+            if (nodes == null) return usage;
 
             foreach (XmlNode node in nodes)
             {
                 var row = usage.NewRow();
 
-                row["UsageType"] = node.SelectSingleNode("./Атрибут[@Имя='ВидПользования']")?.InnerText;
-                row["StartYear"] = node.SelectSingleNode("./Атрибут[@Имя='Начало']")?.InnerText;
-                row["EndYear"] = node.SelectSingleNode("./Атрибут[@Имя='Конец']")?.InnerText;
-                row["FullUsageText"] = node.SelectSingleNode("./Атрибут[@Имя='ВидИСрокиПользованияДляПечати']")?.InnerText;
-                row["Basis"] = node.SelectSingleNode("./Атрибут[@Имя='ОснованиеПользования']")?.InnerText;
+                row["Вид пользования"] = GetNodeValue(node, "./Атрибут[@Имя='ВидПользования']");
+                row["Период (начало)"] = GetNodeValue(node, "./Атрибут[@Имя='Начало']");
+                row["Период (конец)"] = GetNodeValue(node, "./Атрибут[@Имя='Конец']");
+                row["Сроки пользования"] = GetNodeValue(node, "./Атрибут[@Имя='ВидИСрокиПользованияДляПечати']");
+                row["Основание"] = GetNodeValue(node, "./Атрибут[@Имя='ОснованиеПользования']");
 
-                row["PropertyType"] = node.SelectSingleNode("./Атрибут[@Имя='ВидНедвижимогоИмущества']")?.InnerText;
-                row["PropertyName"] = node.SelectSingleNode("./Атрибут[@Имя='Наименование']")?.InnerText;
-                row["Area"] = node.SelectSingleNode("./Атрибут[@Имя='Площадь']")?.InnerText;
-                row["Address"] = node.SelectSingleNode("./Атрибут[@Имя='МестонахождениеИмущества']/Адрес/Атрибут[@Имя='ДляПечати']")?.InnerText;
+                row["Тип имущества"] = GetNodeValue(node, "./Атрибут[@Имя='ВидНедвижимогоИмущества']");
+                row["Наименование"] = GetNodeValue(node, "./Атрибут[@Имя='НаименованиеНедвижимогоИмуществаСПояснением']");
+                row["Площадь (кв.м)"] = GetNodeValue(node, "./Атрибут[@Имя='ПлощадьДляПечати']");
 
-                row["OwnerFullName"] = node.SelectSingleNode("./Атрибут[@Имя='ФИО']")?.InnerText;
-                row["OwnerBirthDate"] = node.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
+                var addressNode = node.SelectSingleNode("./Атрибут[@Имя='МестонахождениеИмущества']/Адрес");
+                row["Адрес"] = GetNodeValue(addressNode, "./Атрибут[@Имя='ДляПечати']");
+
+                row["Предоставившее лицо"] = GetNodeValue(node, "./Атрибут[@Имя='ФИО']");
+                row["Дата рождения предоставившего"] = GetNodeValue(node, "./Атрибут[@Имя='ДатаРождения']");
 
                 usage.Rows.Add(row);
             }
 
             return usage;
         }
-        private DataTable Vehicles(XmlNode spravka)
+        private static DataTable Vehicles(XmlNode spravka)
         {
             DataTable vehicles = new DataTable("Транспортные средства");
 
-            vehicles.Columns.Add("VehicleType");         // ВидТранспортногоСредства
-            vehicles.Columns.Add("Brand");               // МаркаТранспортногоСредства
-            vehicles.Columns.Add("Model");               // МодельТранспортногоСредства
-            vehicles.Columns.Add("Year");                // ГодВыпуска
-            vehicles.Columns.Add("RegistrationPlace");   // МестоРегистрации
-            vehicles.Columns.Add("OwnershipType");       // ВидСобственности
-            vehicles.Columns.Add("Description");         // Наименование
-            vehicles.Columns.Add("DisplayName");         // НаименованиеИМаркаТранспортногоСредстваДляПечати
+            vehicles.Columns.Add("Тип ТС", typeof(string));
+            vehicles.Columns.Add("Марка", typeof(string));
+            vehicles.Columns.Add("Модель", typeof(string));
+            vehicles.Columns.Add("Год выпуска", typeof(int));
+            vehicles.Columns.Add("Место регистрации", typeof(string));
+            vehicles.Columns.Add("Форма собственности", typeof(string));
+            vehicles.Columns.Add("Описание", typeof(string));
+            vehicles.Columns.Add("Полное наименование", typeof(string));
 
-            var transportNodes = spravka.SelectNodes(".//Атрибут[@Имя='ТранспортныеСредства']/Собственность");
+            var nodes = spravka.SelectNodes(".//Атрибут[@Имя='ТранспортныеСредства']/Собственность");
+            if (nodes == null) return vehicles;
 
-            foreach (XmlNode node in transportNodes)
+            foreach (XmlNode node in nodes)
             {
                 var row = vehicles.NewRow();
 
-                // Основной блок
-                row["VehicleType"] = node.SelectSingleNode(".//Атрибут[@Имя='ВидТранспортногоСредства']")?.InnerText;
-                row["Brand"] = node.SelectSingleNode(".//Атрибут[@Имя='МаркаТранспортногоСредства']")?.InnerText;
-                row["Model"] = node.SelectSingleNode(".//Атрибут[@Имя='МодельТранспортногоСредства']")?.InnerText;
-                row["Year"] = node.SelectSingleNode(".//Атрибут[@Имя='ГодВыпуска']")?.InnerText;
-                row["RegistrationPlace"] = node.SelectSingleNode(".//Атрибут[@Имя='МестоРегистрации']")?.InnerText;
-                row["OwnershipType"] = node.SelectSingleNode(".//Атрибут[@Имя='ВидСобственности']")?.InnerText;
-                row["Description"] = node.SelectSingleNode(".//Атрибут[@Имя='Наименование']")?.InnerText;
-                row["DisplayName"] = node.SelectSingleNode(".//Атрибут[@Имя='НаименованиеИМаркаТранспортногоСредстваДляПечати']")?.InnerText;
+                row["Тип ТС"] = GetNodeValue(node, ".//Атрибут[@Имя='ВидТранспортногоСредства']");
+                row["Марка"] = GetNodeValue(node, ".//Атрибут[@Имя='МаркаТранспортногоСредства']");
+                row["Модель"] = GetNodeValue(node, ".//Атрибут[@Имя='МодельТранспортногоСредства']");
+
+                if (int.TryParse(GetNodeValue(node, ".//Атрибут[@Имя='ГодВыпуска']"), out int year))
+                    row["Год выпуска"] = year;
+
+                row["Место регистрации"] = GetNodeValue(node, ".//Атрибут[@Имя='МестоРегистрации']");
+                row["Форма собственности"] = GetNodeValue(node, ".//Атрибут[@Имя='ВидСобственности']");
+                row["Описание"] = GetNodeValue(node, ".//Атрибут[@Имя='Наименование']");
+                row["Полное наименование"] = GetNodeValue(node, ".//Атрибут[@Имя='НаименованиеИМаркаТранспортногоСредстваДляПечати']");
 
                 vehicles.Rows.Add(row);
             }
 
             return vehicles;
         }
-        private DataTable DigitalFinancialAssets(XmlNode spravka)
+        private static DataTable DigitalFinancialAssets(XmlNode spravka)
         {
-            DataTable table = new DataTable("Цифровые финансы");
-            table.Columns.Add("AssetName");
-            table.Columns.Add("AcquisitionDate");
-            table.Columns.Add("Quantity");
-            table.Columns.Add("Operator");
-            table.Columns.Add("Country");
-            table.Columns.Add("RegistrationNumber");
+            DataTable table = new DataTable("Цифровые финансовые активы");
+
+            table.Columns.Add("Наименование актива", typeof(string));
+            table.Columns.Add("Дата приобретения", typeof(DateTime));
+            table.Columns.Add("Количество", typeof(decimal));
+            table.Columns.Add("Оператор", typeof(string));
+            table.Columns.Add("Страна регистрации", typeof(string));
+            table.Columns.Add("Рег. номер", typeof(string));
 
             var nodes = spravka.SelectNodes(".//Цифровые_финансовые_активы");
+            if (nodes == null) return table;
+
             foreach (XmlNode node in nodes)
             {
                 var row = table.NewRow();
-                row["AssetName"] = node.SelectSingleNode("./Атрибут[@Имя='Наименование_цифрового_финансового_актива']")?.InnerText;
-                row["AcquisitionDate"] = node.SelectSingleNode("./Атрибут[@Имя='Дата_приобретения']")?.InnerText;
-                row["Quantity"] = node.SelectSingleNode("./Атрибут[@Имя='Общее_количество']")?.InnerText;
-                row["Operator"] = node.SelectSingleNode("./Атрибут[@Имя='Наименование_оператора']")?.InnerText;
-                row["Country"] = node.SelectSingleNode("./Атрибут[@Имя='Страна_регистрации']")?.InnerText;
-                row["RegistrationNumber"] = node.SelectSingleNode("./Атрибут[@Имя='Регистрационный_номер']")?.InnerText;
+
+                row["Наименование актива"] = GetNodeValue(node, "./Атрибут[@Имя='Наименование_цифрового_финансового_актива']");
+
+                if (DateTime.TryParse(GetNodeValue(node, "./Атрибут[@Имя='Дата_приобретения']"), out DateTime date))
+                    row["Дата приобретения"] = date;
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='Общее_количество']"), out decimal quantity))
+                    row["Количество"] = quantity;
+
+                row["Оператор"] = GetNodeValue(node, "./Атрибут[@Имя='Наименование_оператора']");
+                row["Страна регистрации"] = GetNodeValue(node, "./Атрибут[@Имя='Страна_регистрации']");
+                row["Рег. номер"] = GetNodeValue(node, "./Атрибут[@Имя='Регистрационный_номер']");
+
                 table.Rows.Add(row);
             }
+
             return table;
         }
-        private DataTable DigitalCurrencies(XmlNode spravka)
+        private static DataTable DigitalCurrencies(XmlNode spravka)
         {
-            DataTable table = new DataTable("Цифровая валюта");
-            table.Columns.Add("CurrencyName");
-            table.Columns.Add("AcquisitionDate");
-            table.Columns.Add("Quantity");
+            DataTable table = new DataTable("Цифровые валюты");
+
+            table.Columns.Add("Наименование", typeof(string));
+            table.Columns.Add("Дата приобретения", typeof(DateTime));
+            table.Columns.Add("Количество", typeof(decimal));
 
             var nodes = spravka.SelectNodes(".//Цифровая_валюта");
+            if (nodes == null) return table;
+
             foreach (XmlNode node in nodes)
             {
                 var row = table.NewRow();
-                row["CurrencyName"] = node.SelectSingleNode("./Атрибут[@Имя='Наименование_цифровой_валюты']")?.InnerText;
-                row["AcquisitionDate"] = node.SelectSingleNode("./Атрибут[@Имя='Дата_приобретения']")?.InnerText;
-                row["Quantity"] = node.SelectSingleNode("./Атрибут[@Имя='Общее_количество']")?.InnerText;
+
+                row["Наименование"] = GetNodeValue(node, "./Атрибут[@Имя='Наименование_цифровой_валюты']");
+
+                if (DateTime.TryParse(GetNodeValue(node, "./Атрибут[@Имя='Дата_приобретения']"), out DateTime date))
+                    row["Дата приобретения"] = date;
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='Общее_количество']"), out decimal quantity))
+                    row["Количество"] = quantity;
+
                 table.Rows.Add(row);
             }
+
             return table;
         }
-        private DataTable Securities(XmlNode spravka)
+        private static DataTable Securities(XmlNode spravka)
         {
-            DataTable table = new DataTable("Ценные Бумаги");
-            table.Columns.Add("OrganizationName");
-            table.Columns.Add("LegalForm");
-            table.Columns.Add("LegalAddress");
-            table.Columns.Add("ShareType");
-            table.Columns.Add("SharesCount");
-            table.Columns.Add("NominalPrice");
-            table.Columns.Add("TotalValue");
-            table.Columns.Add("OwnershipBasis");
+            DataTable table = new DataTable("Ценные бумаги");
+
+            table.Columns.Add("Наименование организации", typeof(string));
+            table.Columns.Add("Организационная форма", typeof(string));
+            table.Columns.Add("Адрес", typeof(string));
+            table.Columns.Add("Тип акции", typeof(string));
+            table.Columns.Add("Количество", typeof(int));
+            table.Columns.Add("Номинальная стоимость", typeof(decimal));
+            table.Columns.Add("Общая стоимость", typeof(decimal));
+            table.Columns.Add("Основание владения", typeof(string));
+            table.Columns.Add("Доля участия", typeof(string));
 
             var nodes = spravka.SelectNodes(".//УчастиеВКоммерческихОрганизацияхИФондах");
+            if (nodes == null) return table;
+
             foreach (XmlNode node in nodes)
             {
                 var row = table.NewRow();
-                row["OrganizationName"] = node.SelectSingleNode(".//Атрибут[@Имя='Имя']")?.InnerText;
-                row["LegalForm"] = node.SelectSingleNode(".//Атрибут[@Имя='ОрганизационноПравоваяФорма']")?.InnerText;
-                row["LegalAddress"] = node.SelectSingleNode(".//Атрибут[@Имя='ЮридическийАдрес']/Адрес/Атрибут[@Имя='ДляПечати']")?.InnerText;
-                row["ShareType"] = node.SelectSingleNode("./Атрибут[@Имя='ВидАкции']")?.InnerText;
-                row["SharesCount"] = node.SelectSingleNode("./Атрибут[@Имя='КоличествоАкций']")?.InnerText;
-                row["NominalPrice"] = node.SelectSingleNode("./Атрибут[@Имя='НоминальнаяСтоимостьАкции']")?.InnerText;
-                row["TotalValue"] = node.SelectSingleNode("./Атрибут[@Имя='ОбщаяСтоимость']")?.InnerText;
-                row["OwnershipBasis"] = node.SelectSingleNode("./Атрибут[@Имя='ОснованиеУчастия']")?.InnerText;
+
+                row["Наименование организации"] = GetNodeValue(node, ".//Атрибут[@Имя='Имя']");
+                row["Организационная форма"] = GetNodeValue(node, ".//Атрибут[@Имя='ОрганизационноПравоваяФорма']");
+                row["Адрес"] = GetNodeValue(node, ".//Атрибут[@Имя='ЮридическийАдрес']/Адрес/Атрибут[@Имя='ДляПечати']");
+                row["Тип акции"] = GetNodeValue(node, "./Атрибут[@Имя='ВидАкции']");
+
+                if (int.TryParse(GetNodeValue(node, "./Атрибут[@Имя='КоличествоАкций']"), out int quantity))
+                    row["Количество"] = quantity;
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='НоминальнаяСтоимостьАкции']"), out decimal nominal))
+                    row["Номинальная стоимость"] = nominal;
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='ОбщаяСтоимость']"), out decimal total))
+                    row["Общая стоимость"] = total;
+
+                row["Основание владения"] = GetNodeValue(node, "./Атрибут[@Имя='ОснованиеУчастия']");
+                row["Доля участия"] = GetNodeValue(node, "./Атрибут[@Имя='ДоляУчастияДляПечати']");
+
                 table.Rows.Add(row);
             }
+
             return table;
         }
-        public static DataTable GetLiabilities(XmlNode spravka)
+        private static DataTable GetLiabilities(XmlNode spravka)
         {
-            DataTable table = new DataTable("Liabilities");
-            table.Columns.Add("Type");
-            table.Columns.Add("Creditor");
-            table.Columns.Add("INN");
-            table.Columns.Add("OGRN");
-            table.Columns.Add("Contract");
-            table.Columns.Add("Amount");
-            table.Columns.Add("Outstanding");
-            table.Columns.Add("Terms");
+            DataTable table = new DataTable("Обязательства");
+
+            table.Columns.Add("Тип обязательства", typeof(string));
+            table.Columns.Add("Контрагент", typeof(string));
+            table.Columns.Add("ИНН", typeof(string));
+            table.Columns.Add("ОГРН", typeof(string));
+            table.Columns.Add("Основание", typeof(string));
+            table.Columns.Add("Сумма", typeof(decimal));
+            table.Columns.Add("Остаток", typeof(decimal));
+            table.Columns.Add("Условия", typeof(string));
+            table.Columns.Add("Статус", typeof(string));
 
             var nodes = spravka.SelectNodes(".//СрочноеОбязательство");
+            if (nodes == null) return table;
+
             foreach (XmlNode node in nodes)
             {
                 var row = table.NewRow();
-                row["Type"] = node.SelectSingleNode("./Атрибут[@Имя='ВидОбязательства']")?.InnerText;
-                row["Creditor"] = node.SelectSingleNode("./Атрибут[@Имя='ЮрЛицо']")?.InnerText;
-                row["INN"] = node.SelectSingleNode("./Атрибут[@Имя='ИНН']")?.InnerText;
-                row["OGRN"] = node.SelectSingleNode("./Атрибут[@Имя='ОГРН']")?.InnerText;
-                row["Contract"] = node.SelectSingleNode("./Атрибут[@Имя='ОснованиеВозникновения']")?.InnerText;
-                row["Amount"] = node.SelectSingleNode("./Атрибут[@Имя='СуммаОбязательства']")?.InnerText;
-                row["Outstanding"] = node.SelectSingleNode("./Атрибут[@Имя='РазмерОбязательства']")?.InnerText;
-                row["Terms"] = node.SelectSingleNode("./Атрибут[@Имя='УсловиеОбязательства']")?.InnerText;
+
+                row["Тип обязательства"] = GetNodeValue(node, "./Атрибут[@Имя='ВидОбязательства']");
+                row["Контрагент"] = GetNodeValue(node, "./Атрибут[@Имя='ЮрЛицо']");
+                row["ИНН"] = GetNodeValue(node, "./Атрибут[@Имя='ИНН']");
+                row["ОГРН"] = GetNodeValue(node, "./Атрибут[@Имя='ОГРН']");
+                row["Основание"] = GetNodeValue(node, "./Атрибут[@Имя='ОснованиеВозникновения']");
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='СуммаОбязательства']"), out decimal amount))
+                    row["Сумма"] = amount;
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='РазмерОбязательства']"), out decimal balance))
+                    row["Остаток"] = balance;
+
+                row["Условия"] = GetNodeValue(node, "./Атрибут[@Имя='УсловиеОбязательства']");
+                row["Статус"] = GetNodeValue(node, "./Атрибут[@Имя='КредиторИлиДолжник']");
+
                 table.Rows.Add(row);
             }
+
             return table;
         }
-        public static DataTable GetGifts(XmlNode spravka)
+        private static DataTable GetGifts(XmlNode spravka)
         {
-            DataTable table = new DataTable("Gifts");
-            table.Columns.Add("Donor");
-            table.Columns.Add("BirthDate");
-            table.Columns.Add("GiftType");
-            table.Columns.Add("GiftName");
-            table.Columns.Add("GiftArea");
-            table.Columns.Add("GiftAddress");
-            table.Columns.Add("Reason");
-            table.Columns.Add("DocumentType");
-            table.Columns.Add("DocumentNumber");
-            table.Columns.Add("DocumentDate");
-            table.Columns.Add("IssuedBy");
+            DataTable table = new DataTable("Подарки");
+
+            table.Columns.Add("Даритель", typeof(string));
+            table.Columns.Add("Дата рождения", typeof(DateTime));
+            table.Columns.Add("Тип имущества", typeof(string));
+            table.Columns.Add("Наименование", typeof(string));
+            table.Columns.Add("Площадь", typeof(decimal));
+            table.Columns.Add("Адрес", typeof(string));
+            table.Columns.Add("Основание", typeof(string));
+            table.Columns.Add("Тип документа", typeof(string));
+            table.Columns.Add("Документ", typeof(string));
+            table.Columns.Add("Дата выдачи", typeof(DateTime));
+            table.Columns.Add("Кем выдан", typeof(string));
 
             var nodes = spravka.SelectNodes(".//Подарок");
+            if (nodes == null) return table;
+
             foreach (XmlNode node in nodes)
             {
                 var row = table.NewRow();
-                row["Donor"] = node.SelectSingleNode("./Атрибут[@Имя='ФИО']")?.InnerText;
-                row["BirthDate"] = node.SelectSingleNode("./Атрибут[@Имя='ДатаРождения']")?.InnerText;
-                row["GiftType"] = node.SelectSingleNode("./Атрибут[@Имя='ВидИмущества']")?.InnerText;
-                row["GiftName"] = node.SelectSingleNode("./Атрибут[@Имя='НаименованиеНедвижимогоИмущества']")?.InnerText;
-                row["GiftArea"] = node.SelectSingleNode("./Атрибут[@Имя='Площадь']")?.InnerText;
-                row["GiftAddress"] = node.SelectSingleNode("./Атрибут[@Имя='МестонахождениеИмущества']/Адрес/Атрибут[@Имя='ДляПечати']")?.InnerText;
-                row["Reason"] = node.SelectSingleNode("./Атрибут[@Имя='ОснованиеОтчуждения']")?.InnerText;
-                row["DocumentType"] = node.SelectSingleNode("./Атрибут[@Имя='ТипДокумента']")?.InnerText;
-                row["DocumentNumber"] = $"{node.SelectSingleNode("./Атрибут[@Имя='Серия']")?.InnerText} {node.SelectSingleNode("./Атрибут[@Имя='Номер']")?.InnerText}";
-                row["DocumentDate"] = node.SelectSingleNode("./Атрибут[@Имя='ДатаВыдачи']")?.InnerText;
-                row["IssuedBy"] = node.SelectSingleNode("./Атрибут[@Имя='КемВыдан']")?.InnerText;
+
+                row["Даритель"] = GetNodeValue(node, "./Атрибут[@Имя='ФИО']");
+
+                if (DateTime.TryParse(GetNodeValue(node, "./Атрибут[@Имя='ДатаРождения']"), out DateTime birthDate))
+                    row["Дата рождения"] = birthDate;
+
+                row["Тип имущества"] = GetNodeValue(node, "./Атрибут[@Имя='ВидИмущества']");
+                row["Наименование"] = GetNodeValue(node, "./Атрибут[@Имя='НаименованиеНедвижимогоИмущества']");
+
+                if (decimal.TryParse(GetNodeValue(node, "./Атрибут[@Имя='Площадь']"), out decimal area))
+                    row["Площадь"] = area;
+
+                row["Адрес"] = GetNodeValue(node, "./Атрибут[@Имя='МестонахождениеИмущества']/Адрес/Атрибут[@Имя='ДляПечати']");
+                row["Основание"] = GetNodeValue(node, "./Атрибут[@Имя='ОснованиеОтчуждения']");
+                row["Тип документа"] = GetNodeValue(node, "./Атрибут[@Имя='ТипДокумента']");
+
+                string series = GetNodeValue(node, "./Атрибут[@Имя='Серия']");
+                string number = GetNodeValue(node, "./Атрибут[@Имя='Номер']");
+                row["Документ"] = $"{series} {number}".Trim();
+
+                if (DateTime.TryParse(GetNodeValue(node, "./Атрибут[@Имя='ДатаВыдачи']"), out DateTime issueDate))
+                    row["Дата выдачи"] = issueDate;
+
+                row["Кем выдан"] = GetNodeValue(node, "./Атрибут[@Имя='КемВыдан']");
+
                 table.Rows.Add(row);
             }
+
             return table;
         }
-
+        private static string GetNodeValue(XmlNode parentNode, string xpath)
+        {
+            var node = parentNode.SelectSingleNode(xpath);
+            return node?.InnerText ?? string.Empty;
+        }
 
 
     }

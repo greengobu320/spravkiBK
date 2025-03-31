@@ -14,7 +14,17 @@
         </Grid.RowDefinitions>
         <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Gray" ShowsPreview="True"/>
         <Grid Grid.Row="0">
-            
+            <GroupBox Header="Данные из АИС">
+                <Grid>
+                    <Grid.RowDefinitions >
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Grid.Row="0">
+                        <Button Content="Получить данные из АИС" Click="GetDataFromAis_Button_Click"></Button>
+                    </Grid>
+                </Grid>
+            </GroupBox>
         </Grid>
         <Grid Grid.Row="2">
             <GroupBox Header="Данные из справки" Background="#FFD5F5DB">

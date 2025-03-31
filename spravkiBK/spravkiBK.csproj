@@ -68,6 +68,8 @@
     </Compile>
     <Compile Include="GetEIAPData.cs" />
     <Compile Include="GetSpravkaBKData.cs" />
+    <Compile Include="IdentityGenerator.cs" />
+    <Compile Include="JsonToDataTableConverter.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

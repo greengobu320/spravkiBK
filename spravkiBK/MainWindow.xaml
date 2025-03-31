@@ -21,7 +21,11 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <Grid Grid.Row="0">
-                        <Button Content="Получить данные из АИС" Click="GetDataFromAis_Button_Click"></Button>
+                        <StackPanel Orientation="Horizontal" >
+                            <Button Content="Получить данные из АИС" Click="GetDataFromAis_Button_Click"></Button>
+                            <Button Content="Получить данные  АИС" Click="Button_Click_1"></Button>
+                        </StackPanel>
+                       
                     </Grid>
                 </Grid>
             </GroupBox>

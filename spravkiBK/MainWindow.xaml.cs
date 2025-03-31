@@ -183,6 +183,15 @@ namespace spravkiBK
             }
             return null;
         }
+
+        private void Button_Click_1(object sender, RoutedEventArgs e)
+        {
+            string json = File.ReadAllText($@"d:\1.json"); // или получаешь по HTTP
+
+            DataTable table = JsonToDataTableConverter.ConvertJsonToDataTable(json);
+
+            Console.WriteLine();
+        }
     }
 
 

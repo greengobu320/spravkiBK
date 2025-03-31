@@ -18,6 +18,7 @@ using System.Xml;
 using System.Globalization;
 using Newtonsoft.Json;
 using System.Security.Policy;
+using System.Diagnostics;
 
 namespace spravkiBK
 {
@@ -60,7 +61,6 @@ namespace spravkiBK
                 Filter = "XSB files (*.xsb)|*.xsb|All files (*.*)|*.*",
                 Title = "Выберите XSB файл"
             };
-
             if (openFileDialog.ShowDialog() == true)
             {
                 string filePath = openFileDialog.FileName;
@@ -71,12 +71,10 @@ namespace spravkiBK
                     MessageBox.Show($"{dict["data"]}", "Ошибка декодирования", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 else {WorkingFile(dict["data"]);}
-                
             }
         }
          private void DatasetsTreeView_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
-
             var treeView = sender as TreeView;
             if (treeView == null || treeView.SelectedItem == null)
                 return;
@@ -100,7 +98,6 @@ namespace spravkiBK
                 if (table != null)
                     DataGridView.ItemsSource = table.DefaultView;
             }
-
         }
         private TreeViewItem GetTreeViewItemFromObject(ItemsControl container, object item)
         {
@@ -130,20 +127,49 @@ namespace spravkiBK
             {
                 DataSetName = "EiapDataset"
             };
-            List <string> urlList = new List<string>();
-            urlList.Add("http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/bd/full");
-            urlList.Add("http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/nedvizhdata");
-            urlList.Add("http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/transportdata");
-            urlList.Add("http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/vodnvozddata");
-            urlList.Add("http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/bankaccounts");
+            Dictionary<string, string> urlDict = new Dictionary<string, string> ();
+            urlDict.Add("full", "http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/bd/full");
+            urlDict.Add("nedvizhdata", "http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/nedvizhdata");
+            urlDict.Add("transportdata", "http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/transportdata");
+            urlDict.Add("vodnvozddata", "http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/vodnvozddata");
+            urlDict.Add("bankaccounts", "http://ekpiprom.ais3.tax.nalog.ru:9400/inias/csc/pf-is/app-dnpw/service/dnpwcatalogfl/api/v1/bankaccounts");            
            
-            foreach (string url in urlList)
+            foreach (string regim in urlDict.Keys )
             {
-                var resultSearch = await GetEIAPData.GetAsyncDetailData(url, result);
-                if (resultSearch == null) { continue; }
-                if (resultSearch["result"] != "success") { Console.WriteLine($"Ошибка получения данных: {resultSearch["message"]}"); continue; }
-                Console.WriteLine(resultSearch["value"]);
-                Console.WriteLine("-----------------------------");
+                string url = urlDict[regim];
+                if (regim == "full")
+                {
+                    var resultSearch = await GetEIAPData.GetAsyncDetailData(url, result);
+                    if (resultSearch == null) { continue; }
+                    if (resultSearch["result"] != "success") { Console.WriteLine($"Ошибка получения данных: {resultSearch["message"]}"); continue; }
+                    DataTable dataTable = JsonToDataTableConverter.ConvertJsonToDataTable(resultSearch["value"].ToString());
+                    dataTable.TableName = regim;
+                    EiapDataset.Tables.Add(dataTable);
+                }
+                else if (regim == "nedvizhdata" || regim == "transportdata" || regim == "vodnvozddata")
+                {
+                    var resultSearch = await GetEIAPData.GetAsyncDetailData(url, result);
+                    if (resultSearch == null) { continue; }
+                    if (resultSearch["result"] != "success") { Console.WriteLine($"Ошибка получения данных: {resultSearch["message"]}"); continue; }
+                    Dictionary<string, object> oneDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(resultSearch["value"].ToString());
+                    Dictionary<string, object> oneData = JsonConvert.DeserializeObject<Dictionary<string, object>>(oneDict["Data"].ToString());
+                    DataTable dataTable = JsonConvert.DeserializeObject<DataTable>(oneData["Groups"].ToString());
+                    dataTable.TableName = regim;
+                    EiapDataset.Tables.Add(dataTable);
+                }
+                else if (regim == "bankaccounts")
+                {
+
+                    var resultSearch = await GetEIAPData.GetAsyncDetailData(url, result);
+                    if (resultSearch == null) { continue; }
+                    if (resultSearch["result"] != "success") { Console.WriteLine($"Ошибка получения данных: {resultSearch["message"]}"); continue; }
+                    Dictionary<string, object> oneDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(resultSearch["value"].ToString());
+                    Dictionary<string, object> oneData = JsonConvert.DeserializeObject<Dictionary<string, object>>(oneDict["Data"].ToString());
+                    DataTable dataTable = JsonConvert.DeserializeObject<DataTable>(oneData["Accounts"].ToString());
+                    dataTable.TableName = regim;
+                    EiapDataset.Tables.Add(dataTable);
+                    Console.WriteLine();
+                }                 
             }
             
             
@@ -151,7 +177,6 @@ namespace spravkiBK
 
 
         }
-
         private async Task <string>  searchData(string name, string BrithDate)
         {
             string result = null;
@@ -186,11 +211,8 @@ namespace spravkiBK
 
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
-            string json = File.ReadAllText($@"d:\1.json"); // или получаешь по HTTP
+            
 
-            DataTable table = JsonToDataTableConverter.ConvertJsonToDataTable(json);
-
-            Console.WriteLine();
         }
     }
 
